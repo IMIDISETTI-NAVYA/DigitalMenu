@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart QR Menu - Auto Translate</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root { --primary: #e67e22; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #fdfdfd; text-align: center; }
+        
+        /* QR Code Section */
+        #qr-view { margin-top: 60px; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); display: inline-block; }
+        
+        /* Language & Menu View */
+        #lang-view, #menu-view { display: none; padding: 20px; }
+        .lang-btn { background: var(--primary); color: white; border: none; padding: 15px; margin: 10px; width: 85%; max-width: 300px; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 1.2rem; }
+        
+        .item-card { 
+            background: white; display: flex; justify-content: space-between; padding: 18px; 
+            margin: 12px auto; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); 
+            max-width: 450px; border-left: 6px solid var(--primary); text-align: left;
+        }
+        .price { color: var(--primary); font-weight: bold; font-size: 1.1rem; }
+
+        /* Google Translate UI elements ni hide chesthunnam looks kosam */
+        .goog-te-banner-frame.skiptranslate, .goog-te-gadget { display: none !important; }
+        body { top: 0px !important; }
+    </style>
+</head>
+<body>
+
+    <div id="qr-view">
+        <h2 class="notranslate" style="margin-top:0">Scan for Menu</h2>
+        <div id="qrcode" style="margin: 20px auto;"></div>
+        <p class="notranslate" style="color: #888;">Digital Menu QR</p>
+    </div>
+
+    <div id="lang-view">
+        <h2 class="notranslate">Select Language / భాషను ఎంచుకోండి</h2>
+        <button class="lang-btn notranslate" onclick="setLanguage('en')">English</button>
+        <button class="lang-btn notranslate" onclick="setLanguage('te')">తెలుగు (Telugu)</button>
+        <button class="lang-btn notranslate" onclick="setLanguage('hi')">हिन्दी (Hindi)</button>
+    </div>
+
+    <div id="menu-view">
+        <h1 id="menu-header" style="color: var(--primary);">Today's Menu</h1>
+        <div id="items-list"></div>
+        <button class="notranslate" onclick="location.reload()" style="margin-top:30px; border:none; background:none; color:gray; cursor:pointer;">⬅ Back to Languages</button>
+    </div>
+
+    <div id="google_translate_element" style="visibility: hidden; position: absolute;"></div>
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'en', 
+                includedLanguages: 'te,hi,en', 
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AizasyBkRY8LQ5G27tGY8clYXG1nab6pzteJBjw",
+            authDomain: "qr-menu-756d1.firebaseapp.com",
+            projectId: "qr-menu-756d1",
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Mode Check: QR generation or Menu display
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('mode') === 'scan') {
+            document.getElementById('qr-view').style.display = 'none';
+            document.getElementById('lang-view').style.display = 'block';
+        } else {
+            new QRCode(document.getElementById("qrcode"), {
+                text: window.location.href + "?mode=scan",
+                width: 200, height: 200
+            });
+        }
+
+        let selectedLang = 'en';
+
+        function setLanguage(langCode) {
+            selectedLang = langCode;
+            
+            // Trigger Google Translate API
+            const googleSelect = document.querySelector('.goog-te-combo');
+            if (googleSelect) {
+                googleSelect.value = langCode;
+                googleSelect.dispatchEvent(new Event('change'));
+            }
+            
+            document.getElementById('lang-view').style.display = 'none';
+            document.getElementById('menu-view').style.display = 'block';
+            loadMenu();
+        }
+
+        function loadMenu() {
+            const list = document.getElementById('items-list');
+            
+            // Real-time listener from Firebase
+            db.collection("menu").onSnapshot((snapshot) => {
+                list.innerHTML = "";
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    list.innerHTML += `
+                        <div class="item-card">
+                            <span class="item-name"><b>${data.name}</b></span>
+                            <span class="price">₹${data.price}</span>
+                        </div>
+                    `;
+                });
+                
+                // DATA LOAD AYYAKA MALLI FORCE TRANSLATION TRIGGER CHESTUNNAM
+                setTimeout(() => {
+                    const googleSelect = document.querySelector('.goog-te-combo');
+                    if (googleSelect && googleSelect.value !== 'en') {
+                        googleSelect.dispatchEvent(new Event('change'));
+                    }
+                }, 800); // 800ms gap is for stable translation
+            });
+        }
+    </script>
+</body>
+</html>
